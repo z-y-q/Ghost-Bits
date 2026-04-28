@@ -1,0 +1,11 @@
+=======================================
+  CLASSIFIED - DO NOT DISTRIBUTE
+=======================================
+
+Database: mysql://admin:SuperSecret123@db.internal:3306/production
+API Key: sk-ghost-bits-key-2026-xxxx
+Admin Panel: https://admin.internal.company.com
+
+flag{Ghost_Bits_Path_Traversal_BHA2026}
+
+=======================================

