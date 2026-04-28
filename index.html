@@ -755,7 +755,7 @@ const KEYWORDS = [
 // ========== State ==========
 let currentTransformResult = null;
 let currentOutputFormat = 'raw';
-
+let keywordTransformCache = null;
 // ========== Transform Engine ==========
 
 function getHighByte() {
@@ -786,6 +786,29 @@ function toGhostChar(byteValue, highByteBase) {
   return { codePoint, char: String.fromCodePoint(codePoint) };
 }
 
+function getKeywordTransformIndexes(payload) {
+  if (keywordTransformCache && keywordTransformCache.payload === payload) {
+    return keywordTransformCache.indexes;
+  }
+
+  const indexes = new Set();
+  const upper = payload.toUpperCase();
+
+  for (const kw of KEYWORDS) {
+    const keyword = kw.toUpperCase();
+    let start = upper.indexOf(keyword);
+    while (start !== -1) {
+      for (let i = start; i < start + keyword.length; i++) {
+        indexes.add(i);
+      }
+      start = upper.indexOf(keyword, start + 1);
+    }
+  }
+
+  keywordTransformCache = { payload, indexes };
+  return indexes;
+}
+
 function shouldTransform(charCode, mode, payload, index) {
   const ch = String.fromCharCode(charCode);
 
@@ -799,17 +822,7 @@ function shouldTransform(charCode, mode, payload, index) {
     case 'smart':
       return SENSITIVE_CHARS.has(ch) || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(ch);
     case 'keyword': {
-      const upper = payload.toUpperCase();
-      for (const kw of KEYWORDS) {
-        const kwLower = kw.toLowerCase();
-        const kwIdx = upper.indexOf(kw.toUpperCase());
-        if (kwIdx !== -1) {
-          for (let i = kwIdx; i < kwIdx + kw.length; i++) {
-            if (i === index) return true;
-          }
-        }
-      }
-      return false;
+      return getKeywordTransformIndexes(payload).has(index);
     }
     case 'custom': {
       const customChars = document.getElementById('customChars').value;
